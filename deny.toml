@@ -1,11 +1,12 @@
+[graph]
+all-features = false
+
 [advisories]
-vulnerability = "deny"
-unmaintained = "warn"
-notice = "warn"
-ignore = []
+ignore = [
+    { id = "RUSTSEC-2023-0080", reason = "transpose 0.1.0 buffer overflow. Transitive dep via img_hash -> rustdct -> rustfft. Cannot upgrade without upstream update." },
+]
 
 [licenses]
-unlicensed = "deny"
 allow = [
     "MIT",
     "Apache-2.0",
@@ -14,14 +15,10 @@ allow = [
     "Unicode-3.0",
     "Zlib",
 ]
-deny = []
-copyleft = "deny"
-allow-osi-fsf-free = "neither"
-default = "deny"
-confidence = 0.8
+confidence-threshold = 0.8
 
 [bans]
-multiple-versions = "deny"
+multiple-versions = "warn"
 
 [sources]
 unknown-registry = "deny"

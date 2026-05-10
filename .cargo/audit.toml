@@ -1,0 +1,8 @@
+[advisories]
+ignore = [
+    # transpose 0.1.0 buffer overflow (RUSTSEC-2023-0080).
+    # This is a transitive dependency via img_hash -> rustdct -> rustfft -> transpose.
+    # img_hash is pinned to rustfft 3.0.1 which requires transpose ^0.1.
+    # We cannot upgrade without upstream fixes in rustfft/img_hash.
+    "RUSTSEC-2023-0080",
+]
