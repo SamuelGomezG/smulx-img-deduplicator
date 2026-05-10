@@ -65,6 +65,27 @@ fn discover_images_multiple_roots() {
 }
 
 #[test]
+fn discover_images_skips_nonexistent_root() {
+    let dir = TempDir::new().unwrap();
+    touch(&dir.path().join("photo.jpg"));
+    let bad: PathBuf = PathBuf::from("/nonexistent/path");
+
+    let roots = vec![bad, dir.path().to_path_buf()];
+    let paths = smulx_img_deduplicator::scanner::discover_images(&roots);
+    assert_eq!(paths.len(), 1);
+}
+
+#[test]
+fn discover_images_skips_non_directory_root() {
+    let dir = TempDir::new().unwrap();
+    let file = dir.path().join("not_a_dir.jpg");
+    touch(&file);
+
+    let paths = smulx_img_deduplicator::scanner::discover_images(&[file]);
+    assert!(paths.is_empty(), "A file passed as root should be skipped");
+}
+
+#[test]
 fn discover_images_case_insensitive_extension() {
     let dir = TempDir::new().unwrap();
     touch(&dir.path().join("photo.JPG"));

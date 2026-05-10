@@ -6,6 +6,14 @@ const SUPPORTED_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp", "gif", "ti
 pub fn discover_images(roots: &[PathBuf]) -> Vec<PathBuf> {
     let mut paths = Vec::new();
     for root in roots {
+        if !root.exists() {
+            tracing::warn!("Root path does not exist: {:?}", root);
+            continue;
+        }
+        if !root.is_dir() {
+            tracing::warn!("Root path is not a directory: {:?}", root);
+            continue;
+        }
         let walker = WalkDir::new(root).follow_links(false).min_depth(1);
 
         for entry in walker {
