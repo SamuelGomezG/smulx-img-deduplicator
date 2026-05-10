@@ -64,9 +64,9 @@ pub fn build_clusters(records: &[ImageRecord], threshold: u32) -> Vec<ImageClust
         tree.insert(record.hash, record.path.clone());
     }
 
-    let mut hash_to_indices: HashMap<u64, Vec<usize>> = HashMap::new();
+    let mut path_to_index: HashMap<&std::path::Path, usize> = HashMap::with_capacity(records.len());
     for (i, record) in records.iter().enumerate() {
-        hash_to_indices.entry(record.hash).or_default().push(i);
+        path_to_index.insert(record.path.as_path(), i);
     }
 
     let mut uf = UnionFind::new(records.len());
@@ -75,7 +75,7 @@ pub fn build_clusters(records: &[ImageRecord], threshold: u32) -> Vec<ImageClust
         let neighbors = tree.search(record.hash, threshold);
         for (_, paths) in &neighbors {
             for path in *paths {
-                if let Some(j) = records.iter().position(|r| &r.path == path) {
+                if let Some(&j) = path_to_index.get(path.as_path()) {
                     uf.union(i, j);
                 }
             }
