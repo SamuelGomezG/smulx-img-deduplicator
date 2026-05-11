@@ -57,6 +57,16 @@
 6. All test images are **synthetic** (generated via the `image` crate; no external JPEG/PNG fixtures)
 7. Integration tests use `tempfile::TempDir` for filesystem isolation
 
+## Pre-push CodeRabbit review workflow
+
+Before pushing any changes to remote:
+
+1. Run `cr review --agent -t uncommitted` in the background, letting it take as long as it needs.
+2. Evaluate the findings. Fix **major** issues only, or fix any **critical** issues and ignore the nits.
+3. Run `cr review --agent -t uncommitted` one more time to verify fixes didn't introduce new bugs.
+4. Only run the loop **twice**. If the second run has no critical issues, skip the remaining nits.
+5. Give a summary of what was completed and why.
+
 ## Key conventions
 
 - Keep functions pure where possible; I/O and side effects are at the boundaries (scanner, TUI event loop, deletion)
