@@ -60,7 +60,10 @@ pub fn hash_all(paths: &[PathBuf]) -> Vec<ImageRecord> {
     pb.set_style(
         indicatif::ProgressStyle::default_bar()
             .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} ({eta})")
-            .unwrap_or_else(|_| indicatif::ProgressStyle::default_bar())
+            .unwrap_or_else(|e| {
+                tracing::warn!("progress bar template parsing failed: {}", e);
+                indicatif::ProgressStyle::default_bar()
+            })
             .progress_chars("=> "),
     );
 
