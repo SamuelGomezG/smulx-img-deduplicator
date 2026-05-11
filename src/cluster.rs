@@ -1,9 +1,10 @@
 use crate::bktree::BKTree;
 use crate::hasher::ImageRecord;
+use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct ClusterFile {
     pub path: PathBuf,
     pub distance: u32,
@@ -11,7 +12,7 @@ pub struct ClusterFile {
     pub marked_for_deletion: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ImageCluster {
     pub root_hash: u64,
     pub files: Vec<ClusterFile>,

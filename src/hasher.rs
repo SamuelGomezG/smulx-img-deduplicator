@@ -2,6 +2,7 @@
 
 use image::ImageReader;
 use img_hash::{HashAlg, HasherConfig};
+use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
 use std::path::PathBuf;
 
@@ -55,7 +56,22 @@ fn hash_single(path: &PathBuf) -> Option<ImageRecord> {
 }
 
 pub fn hash_all(paths: &[PathBuf]) -> Vec<ImageRecord> {
-    paths.par_iter().filter_map(hash_single).collect()
+    let pb = indicatif::ProgressBar::new(paths.len() as u64);
+    pb.set_style(
+        indicatif::ProgressStyle::default_bar()
+            .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} ({eta})")
+            .unwrap()
+            .progress_chars("=> "),
+    );
+
+    let result: Vec<ImageRecord> = paths
+        .par_iter()
+        .progress_with(pb.clone())
+        .filter_map(hash_single)
+        .collect();
+
+    pb.finish_and_clear();
+    result
 }
 
 #[cfg(test)]
