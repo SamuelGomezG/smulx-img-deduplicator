@@ -4,7 +4,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ClusterFile {
     pub path: PathBuf,
     pub distance: u32,
