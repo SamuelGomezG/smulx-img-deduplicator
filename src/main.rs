@@ -36,7 +36,7 @@ fn main() -> Result<()> {
     let cli = cli::Cli::parse();
 
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::new(&cli.log_level))
+        .with_env_filter(EnvFilter::new(cli.log_level.to_string()))
         .with_writer(std::io::stderr)
         .init();
 

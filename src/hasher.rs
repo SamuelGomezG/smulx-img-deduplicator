@@ -1,5 +1,4 @@
-#![allow(dead_code)]
-
+use crate::error::DeduplicatorError;
 use image::ImageReader;
 use img_hash::{HashAlg, HasherConfig};
 use indicatif::ParallelProgressIterator;
@@ -30,6 +29,7 @@ pub(crate) fn compute_hash(img: &image::DynamicImage) -> u64 {
     hash_to_u64(image_hash.as_bytes())
 }
 
+#[allow(dead_code)]
 pub(crate) fn hamming_distance(h1: u64, h2: u64) -> u32 {
     (h1 ^ h2).count_ones()
 }
@@ -42,9 +42,39 @@ fn hash_to_u64(bytes: &[u8]) -> u64 {
 fn hash_single(path: &PathBuf) -> Option<ImageRecord> {
     let size_bytes = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
 
-    let reader = ImageReader::open(path).ok()?;
-    let reader = reader.with_guessed_format().ok()?;
-    let img = reader.decode().ok()?;
+    let reader = match ImageReader::open(path) {
+        Ok(r) => r,
+        Err(e) => {
+            let err = DeduplicatorError::Io {
+                path: path.clone(),
+                source: e,
+            };
+            tracing::warn!("{}", err);
+            return None;
+        }
+    };
+    let reader = match reader.with_guessed_format() {
+        Ok(r) => r,
+        Err(e) => {
+            let err = DeduplicatorError::ImageRead {
+                path: path.clone(),
+                source: image::ImageError::IoError(e),
+            };
+            tracing::warn!("{}", err);
+            return None;
+        }
+    };
+    let img = match reader.decode() {
+        Ok(i) => i,
+        Err(e) => {
+            let err = DeduplicatorError::ImageRead {
+                path: path.clone(),
+                source: e,
+            };
+            tracing::warn!("{}", err);
+            return None;
+        }
+    };
 
     let hash = compute_hash(&img);
 
