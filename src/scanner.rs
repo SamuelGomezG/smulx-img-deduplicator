@@ -1,10 +1,16 @@
 use jwalk::WalkDir;
 use std::path::PathBuf;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScannedFile {
+    pub path: PathBuf,
+    pub size_bytes: u64,
+}
+
 const SUPPORTED_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp", "gif", "tiff", "tif", "bmp"];
 
-pub fn discover_images(roots: &[PathBuf]) -> Vec<PathBuf> {
-    let mut paths = Vec::new();
+pub fn discover_images(roots: &[PathBuf]) -> Vec<ScannedFile> {
+    let mut files = Vec::new();
     for root in roots {
         if !root.exists() {
             tracing::warn!("Root path does not exist: {:?}", root);
@@ -21,9 +27,15 @@ pub fn discover_images(roots: &[PathBuf]) -> Vec<PathBuf> {
                 Ok(e) if e.file_type().is_file() => {
                     let path = e.path();
                     if let Some(ext) = path.extension().and_then(|e| e.to_str())
-                        && SUPPORTED_EXTENSIONS.contains(&ext.to_lowercase().as_str())
+                        && SUPPORTED_EXTENSIONS
+                            .iter()
+                            .any(|s| s.eq_ignore_ascii_case(ext))
                     {
-                        paths.push(path);
+                        let size = e.metadata().map(|m| m.len()).unwrap_or(0);
+                        files.push(ScannedFile {
+                            path,
+                            size_bytes: size,
+                        });
                     }
                 }
                 Err(e) => tracing::warn!("Error accessing entry: {}", e),
@@ -31,5 +43,5 @@ pub fn discover_images(roots: &[PathBuf]) -> Vec<PathBuf> {
             }
         }
     }
-    paths
+    files
 }

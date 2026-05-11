@@ -1,10 +1,11 @@
-#![allow(dead_code)]
-
+use crate::scanner::ScannedFile;
 use image::ImageReader;
 use img_hash::{HashAlg, HasherConfig};
 use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
 use std::path::PathBuf;
+
+const MAX_IMAGE_BYTES: u64 = 100 * 1024 * 1024;
 
 #[derive(Debug, Clone)]
 pub struct ImageRecord {
@@ -30,6 +31,7 @@ pub(crate) fn compute_hash(img: &image::DynamicImage) -> u64 {
     hash_to_u64(image_hash.as_bytes())
 }
 
+#[allow(dead_code)]
 pub(crate) fn hamming_distance(h1: u64, h2: u64) -> u32 {
     (h1 ^ h2).count_ones()
 }
@@ -39,24 +41,49 @@ fn hash_to_u64(bytes: &[u8]) -> u64 {
     u64::from_le_bytes(bytes.try_into().unwrap())
 }
 
-fn hash_single(path: &PathBuf) -> Option<ImageRecord> {
-    let size_bytes = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+fn hash_single(file: &ScannedFile) -> Option<ImageRecord> {
+    if file.size_bytes > MAX_IMAGE_BYTES {
+        tracing::warn!(
+            "Skipping oversized image {:?} ({} bytes)",
+            file.path,
+            file.size_bytes
+        );
+        return None;
+    }
 
-    let reader = ImageReader::open(path).ok()?;
-    let reader = reader.with_guessed_format().ok()?;
-    let img = reader.decode().ok()?;
+    let reader = match ImageReader::open(&file.path) {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!("Cannot open image {:?}: {}", file.path, e);
+            return None;
+        }
+    };
+    let reader = match reader.with_guessed_format() {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!("Cannot determine format for {:?}: {}", file.path, e);
+            return None;
+        }
+    };
+    let img = match reader.decode() {
+        Ok(i) => i,
+        Err(e) => {
+            tracing::warn!("Cannot decode image {:?}: {}", file.path, e);
+            return None;
+        }
+    };
 
     let hash = compute_hash(&img);
 
     Some(ImageRecord {
-        path: path.clone(),
+        path: file.path.clone(),
         hash,
-        size_bytes,
+        size_bytes: file.size_bytes,
     })
 }
 
-pub fn hash_all(paths: &[PathBuf]) -> Vec<ImageRecord> {
-    let pb = indicatif::ProgressBar::new(paths.len() as u64);
+pub fn hash_all(files: &[ScannedFile]) -> Vec<ImageRecord> {
+    let pb = indicatif::ProgressBar::new(files.len() as u64);
     pb.set_style(
         indicatif::ProgressStyle::default_bar()
             .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} ({eta})")
@@ -67,7 +94,7 @@ pub fn hash_all(paths: &[PathBuf]) -> Vec<ImageRecord> {
             .progress_chars("=> "),
     );
 
-    let result: Vec<ImageRecord> = paths
+    let result: Vec<ImageRecord> = files
         .par_iter()
         .progress_with(pb.clone())
         .filter_map(hash_single)

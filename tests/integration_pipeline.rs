@@ -31,10 +31,10 @@ fn pipeline_agrupa_imagenes_similares_y_descarta_distintas() {
     let azul_img = ImageBuffer::from_fn(200, 200, |x, _y| Rgb([0u8, 0u8, x as u8]));
     azul_img.save(&azul_path).unwrap();
 
-    let paths = scanner::discover_images(&[dir.path().to_path_buf()]);
-    assert_eq!(paths.len(), 3);
+    let files = scanner::discover_images(&[dir.path().to_path_buf()]);
+    assert_eq!(files.len(), 3);
 
-    let records = hasher::hash_all(&paths);
+    let records = hasher::hash_all(&files);
     assert_eq!(
         records.len(),
         3,
@@ -68,8 +68,8 @@ fn pipeline_duplicados_exactos_misma_imagen_mismo_cluster() {
     let copia = dir.path().join("copia.png");
     std::fs::copy(&original, &copia).unwrap();
 
-    let paths = scanner::discover_images(&[dir.path().to_path_buf()]);
-    let records = hasher::hash_all(&paths);
+    let files = scanner::discover_images(&[dir.path().to_path_buf()]);
+    let records = hasher::hash_all(&files);
     let clusters = cluster::build_clusters(&records, 0);
 
     assert_eq!(clusters.len(), 1);

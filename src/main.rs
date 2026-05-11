@@ -41,20 +41,20 @@ fn main() -> Result<()> {
         .init();
 
     eprintln!("Scanning directories...");
-    let paths = smulx_img_deduplicator::scanner::discover_images(&cli.paths);
-    eprintln!("   {} images found.", paths.len());
+    let files = smulx_img_deduplicator::scanner::discover_images(&cli.paths);
+    eprintln!("   {} images found.", files.len());
 
-    if paths.is_empty() {
+    if files.is_empty() {
         eprintln!("No images found. Check the paths.");
         return Ok(());
     }
 
     eprintln!("Computing hashes (this may take a while)...");
-    let records = smulx_img_deduplicator::hasher::hash_all(&paths);
+    let records = smulx_img_deduplicator::hasher::hash_all(&files);
     eprintln!(
         "   {} images processed ({} failed).",
         records.len(),
-        paths.len() - records.len()
+        files.len() - records.len()
     );
 
     eprintln!("Building clusters (threshold={})...", cli.threshold);
