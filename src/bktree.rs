@@ -85,7 +85,7 @@ pub(crate) fn search_node<'a>(
     }
 
     let lo = d.saturating_sub(threshold) as u8;
-    let hi = (d + threshold).min(64) as u8;
+    let hi = d.saturating_add(threshold).min(64) as u8;
 
     for dist_key in lo..=hi {
         if let Some(child) = node.children.get(&dist_key) {

@@ -97,11 +97,7 @@ fn render_file_list(frame: &mut Frame, app: &App, area: Rect) {
                 .map(|f| {
                     let checkbox = if f.marked_for_deletion { "[x]" } else { "[ ]" };
                     let size_mb = f.size_bytes as f64 / 1_048_576.0;
-                    let name = f
-                        .path
-                        .file_name()
-                        .and_then(|n: &std::ffi::OsStr| n.to_str())
-                        .unwrap_or("?");
+                    let name = f.path.file_name().and_then(|n| n.to_str()).unwrap_or("?");
                     let line = format!(
                         "{} {:<40} {:>6.1} MB  d={}",
                         checkbox, name, size_mb, f.distance
@@ -197,6 +193,10 @@ fn render_centered_modal(frame: &mut Frame, title: &str, msg: &str, color: Color
 }
 
 fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    debug_assert!(
+        percent_x <= 100 && percent_y <= 100,
+        "centered_rect called with percent_x={percent_x}, percent_y={percent_y} (must be ≤ 100)"
+    );
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([

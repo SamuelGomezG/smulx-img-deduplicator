@@ -44,16 +44,17 @@ fn pipeline_agrupa_imagenes_similares_y_descarta_distintas() {
     let clusters = cluster::build_clusters(&records, 5);
 
     for c in &clusters {
-        let has_roja = c
-            .files
-            .iter()
-            .any(|f| f.path.to_str().unwrap().contains("roja"));
-        let has_azul = c
-            .files
-            .iter()
-            .any(|f| f.path.to_str().unwrap().contains("azul"));
+        let filename_contains = |substring: &str| -> bool {
+            c.files.iter().any(|f| {
+                f.path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .map(|s| s.contains(substring))
+                    .unwrap_or(false)
+            })
+        };
         assert!(
-            !(has_roja && has_azul),
+            !(filename_contains("roja") && filename_contains("azul")),
             "Las imagenes rojas y azul no deben estar en el mismo cluster"
         );
     }
