@@ -1,4 +1,5 @@
 use smulx_img_deduplicator::cluster::ImageCluster;
+use std::collections::HashSet;
 use std::path::PathBuf;
 
 pub enum AppMode {
@@ -85,7 +86,7 @@ impl App {
                 .map(|f| f.path.clone())
                 .collect();
 
-            let mut deleted_paths = Vec::new();
+            let mut deleted_paths: HashSet<PathBuf> = HashSet::new();
             for path in &to_delete {
                 let result = if self.use_trash {
                     trash::delete(path.as_path()).map_err(|e| e.to_string())
@@ -96,7 +97,7 @@ impl App {
                 match result {
                     Ok(_) => {
                         deleted += 1;
-                        deleted_paths.push(path.clone());
+                        deleted_paths.insert(path.clone());
                     }
                     Err(e) => errors.push(format!("{}: {}", path.display(), e)),
                 }
@@ -110,6 +111,10 @@ impl App {
                     self.selected_cluster = self.clusters.len() - 1;
                 }
                 self.selected_file = 0;
+            } else {
+                self.selected_file = self
+                    .selected_file
+                    .min(cluster.files.len().saturating_sub(1));
             }
         }
 
@@ -172,10 +177,42 @@ mod tests {
 
     #[test]
     fn execute_deletion_elimina_marcados_y_reduce_cluster() {
-        let mut app = make_app(&[3]);
-        app.clusters[0].files[0].marked_for_deletion = true;
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let path = tmp.path().to_path_buf();
+
+        let mut app = App::new(
+            vec![ImageCluster {
+                root_hash: 0,
+                files: vec![
+                    ClusterFile {
+                        path: path.clone(),
+                        distance: 0,
+                        size_bytes: 1024,
+                        marked_for_deletion: true,
+                    },
+                    ClusterFile {
+                        path: PathBuf::from("/tmp/keep1.jpg"),
+                        distance: 0,
+                        size_bytes: 2048,
+                        marked_for_deletion: false,
+                    },
+                    ClusterFile {
+                        path: PathBuf::from("/tmp/keep2.jpg"),
+                        distance: 0,
+                        size_bytes: 3072,
+                        marked_for_deletion: false,
+                    },
+                ],
+            }],
+            false,
+        );
+
         let initial_len = app.clusters[0].files.len();
-        assert_eq!(initial_len, 3);
+        let (deleted, errors) = app.execute_deletion();
+
+        assert_eq!(deleted, 1);
+        assert!(errors.is_empty());
+        assert_eq!(app.clusters[0].files.len(), initial_len - 1);
     }
 
     #[test]

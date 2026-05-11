@@ -76,7 +76,11 @@ fn handle_file_list(app: &mut App, key: KeyCode) {
             if let Some(cluster) = app.current_cluster()
                 && let Some(file) = cluster.files.get(app.selected_file)
             {
-                let _ = open::that(&file.path);
+                if let Err(e) = open::that(&file.path) {
+                    app.status_message = format!("Error al abrir imagen: {}", e);
+                } else {
+                    app.status_message = "Imagen abierta en el visor.".to_string();
+                }
             }
         }
         _ => {}
