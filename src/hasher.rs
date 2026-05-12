@@ -1,10 +1,12 @@
-#![allow(dead_code)]
-
+use crate::error::DeduplicatorError;
+use crate::scanner::ScannedFile;
 use image::ImageReader;
 use img_hash::{HashAlg, HasherConfig};
 use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
 use std::path::PathBuf;
+
+pub const MAX_IMAGE_BYTES: u64 = 100 * 1024 * 1024;
 
 #[derive(Debug, Clone)]
 pub struct ImageRecord {
@@ -30,33 +32,52 @@ pub(crate) fn compute_hash(img: &image::DynamicImage) -> u64 {
     hash_to_u64(image_hash.as_bytes())
 }
 
-pub(crate) fn hamming_distance(h1: u64, h2: u64) -> u32 {
-    (h1 ^ h2).count_ones()
-}
-
 fn hash_to_u64(bytes: &[u8]) -> u64 {
     assert_eq!(bytes.len(), 8, "Expected 8 bytes for 8x8 hash");
     u64::from_le_bytes(bytes.try_into().unwrap())
 }
 
-fn hash_single(path: &PathBuf) -> Option<ImageRecord> {
-    let size_bytes = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+fn hash_single(file: &ScannedFile) -> Result<Option<ImageRecord>, DeduplicatorError> {
+    if file.size_bytes > MAX_IMAGE_BYTES {
+        tracing::warn!(
+            "Skipping oversized image {:?} ({} bytes)",
+            file.path,
+            file.size_bytes
+        );
+        return Ok(None);
+    }
 
-    let reader = ImageReader::open(path).ok()?;
-    let reader = reader.with_guessed_format().ok()?;
-    let img = reader.decode().ok()?;
+    let mut reader = ImageReader::open(&file.path).map_err(|e| DeduplicatorError::Io {
+        path: file.path.clone(),
+        source: e,
+    })?;
+    reader = reader
+        .with_guessed_format()
+        .map_err(|e| DeduplicatorError::Io {
+            path: file.path.clone(),
+            source: e,
+        })?;
+
+    let mut limits = image::Limits::default();
+    limits.max_alloc = Some(MAX_IMAGE_BYTES);
+    reader.limits(limits);
+
+    let img = reader.decode().map_err(|e| DeduplicatorError::ImageRead {
+        path: file.path.clone(),
+        source: e,
+    })?;
 
     let hash = compute_hash(&img);
 
-    Some(ImageRecord {
-        path: path.clone(),
+    Ok(Some(ImageRecord {
+        path: file.path.clone(),
         hash,
-        size_bytes,
-    })
+        size_bytes: file.size_bytes,
+    }))
 }
 
-pub fn hash_all(paths: &[PathBuf]) -> Vec<ImageRecord> {
-    let pb = indicatif::ProgressBar::new(paths.len() as u64);
+pub fn hash_all(files: &[ScannedFile]) -> Vec<ImageRecord> {
+    let pb = indicatif::ProgressBar::new(files.len() as u64);
     pb.set_style(
         indicatif::ProgressStyle::default_bar()
             .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} ({eta})")
@@ -67,14 +88,26 @@ pub fn hash_all(paths: &[PathBuf]) -> Vec<ImageRecord> {
             .progress_chars("=> "),
     );
 
-    let result: Vec<ImageRecord> = paths
+    let result: Vec<ImageRecord> = files
         .par_iter()
         .progress_with(pb.clone())
-        .filter_map(hash_single)
+        .filter_map(|file| match hash_single(file) {
+            Ok(Some(record)) => Some(record),
+            Ok(None) => None,
+            Err(e) => {
+                tracing::warn!("{}", e);
+                None
+            }
+        })
         .collect();
 
     pb.finish_and_clear();
     result
+}
+
+#[allow(dead_code)]
+pub(crate) fn hamming_distance(h1: u64, h2: u64) -> u32 {
+    (h1 ^ h2).count_ones()
 }
 
 #[cfg(test)]

@@ -14,8 +14,8 @@ fn discover_images_finds_supported_extensions() {
     touch(&dir.path().join("c.webp"));
     touch(&dir.path().join("d.gif"));
 
-    let paths = smulx_img_deduplicator::scanner::discover_images(&[dir.path().to_path_buf()]);
-    assert_eq!(paths.len(), 4);
+    let files = smulx_img_deduplicator::scanner::discover_images(&[dir.path().to_path_buf()]);
+    assert_eq!(files.len(), 4);
 }
 
 #[test]
@@ -26,9 +26,9 @@ fn discover_images_ignores_unsupported_extensions() {
     touch(&dir.path().join("script.py"));
     touch(&dir.path().join("archive.zip"));
 
-    let paths = smulx_img_deduplicator::scanner::discover_images(&[dir.path().to_path_buf()]);
-    assert_eq!(paths.len(), 1);
-    assert!(paths[0].ends_with("photo.jpg"));
+    let files = smulx_img_deduplicator::scanner::discover_images(&[dir.path().to_path_buf()]);
+    assert_eq!(files.len(), 1);
+    assert!(files[0].path.ends_with("photo.jpg"));
 }
 
 #[test]
@@ -41,15 +41,15 @@ fn discover_images_traverses_nested_directories() {
     touch(&sub.join("sub.png"));
     touch(&nested.join("deep.webp"));
 
-    let paths = smulx_img_deduplicator::scanner::discover_images(&[dir.path().to_path_buf()]);
-    assert_eq!(paths.len(), 3);
+    let files = smulx_img_deduplicator::scanner::discover_images(&[dir.path().to_path_buf()]);
+    assert_eq!(files.len(), 3);
 }
 
 #[test]
 fn discover_images_empty_directory_returns_empty() {
     let dir = TempDir::new().unwrap();
-    let paths = smulx_img_deduplicator::scanner::discover_images(&[dir.path().to_path_buf()]);
-    assert!(paths.is_empty());
+    let files = smulx_img_deduplicator::scanner::discover_images(&[dir.path().to_path_buf()]);
+    assert!(files.is_empty());
 }
 
 #[test]
@@ -60,8 +60,8 @@ fn discover_images_multiple_roots() {
     touch(&dir2.path().join("b.png"));
 
     let roots = vec![dir1.path().to_path_buf(), dir2.path().to_path_buf()];
-    let paths = smulx_img_deduplicator::scanner::discover_images(&roots);
-    assert_eq!(paths.len(), 2);
+    let files = smulx_img_deduplicator::scanner::discover_images(&roots);
+    assert_eq!(files.len(), 2);
 }
 
 #[test]
@@ -71,8 +71,8 @@ fn discover_images_skips_nonexistent_root() {
     let bad: PathBuf = PathBuf::from("/nonexistent/path");
 
     let roots = vec![bad, dir.path().to_path_buf()];
-    let paths = smulx_img_deduplicator::scanner::discover_images(&roots);
-    assert_eq!(paths.len(), 1);
+    let files = smulx_img_deduplicator::scanner::discover_images(&roots);
+    assert_eq!(files.len(), 1);
 }
 
 #[test]
@@ -81,8 +81,8 @@ fn discover_images_skips_non_directory_root() {
     let file = dir.path().join("not_a_dir.jpg");
     touch(&file);
 
-    let paths = smulx_img_deduplicator::scanner::discover_images(&[file]);
-    assert!(paths.is_empty(), "A file passed as root should be skipped");
+    let files = smulx_img_deduplicator::scanner::discover_images(&[file]);
+    assert!(files.is_empty(), "A file passed as root should be skipped");
 }
 
 #[test]
@@ -92,6 +92,6 @@ fn discover_images_case_insensitive_extension() {
     touch(&dir.path().join("photo.PNG"));
     touch(&dir.path().join("photo.TIFF"));
 
-    let paths = smulx_img_deduplicator::scanner::discover_images(&[dir.path().to_path_buf()]);
-    assert_eq!(paths.len(), 3);
+    let files = smulx_img_deduplicator::scanner::discover_images(&[dir.path().to_path_buf()]);
+    assert_eq!(files.len(), 3);
 }
