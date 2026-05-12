@@ -1,10 +1,9 @@
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 pub struct BKNode {
     pub(crate) hash: u64,
     pub(crate) paths: Vec<PathBuf>,
-    pub(crate) children: HashMap<u8, Box<BKNode>>,
+    pub(crate) children: [Option<Box<BKNode>>; 65],
 }
 
 impl BKNode {
@@ -12,7 +11,7 @@ impl BKNode {
         BKNode {
             hash,
             paths: vec![path],
-            children: HashMap::new(),
+            children: [const { None }; 65],
         }
     }
 }
@@ -57,17 +56,17 @@ pub(crate) fn hamming_distance(h1: u64, h2: u64) -> u32 {
 }
 
 pub(crate) fn insert_node(node: &mut BKNode, hash: u64, path: PathBuf) {
-    let d = hamming_distance(node.hash, hash) as u8;
+    let d = hamming_distance(node.hash, hash) as usize;
 
     if d == 0 {
         node.paths.push(path);
         return;
     }
 
-    match node.children.get_mut(&d) {
+    match &mut node.children[d] {
         Some(child) => insert_node(child, hash, path),
         None => {
-            node.children.insert(d, Box::new(BKNode::new(hash, path)));
+            node.children[d] = Some(Box::new(BKNode::new(hash, path)));
         }
     }
 }
@@ -84,11 +83,11 @@ pub(crate) fn search_node<'a>(
         results.push((node.hash, &node.paths));
     }
 
-    let lo = d.saturating_sub(threshold) as u8;
-    let hi = d.saturating_add(threshold).min(64) as u8;
+    let lo = d.saturating_sub(threshold) as usize;
+    let hi = (d.saturating_add(threshold).min(64)) as usize;
 
     for dist_key in lo..=hi {
-        if let Some(child) = node.children.get(&dist_key) {
+        if let Some(child) = &node.children[dist_key] {
             search_node(child, query, threshold, results);
         }
     }
