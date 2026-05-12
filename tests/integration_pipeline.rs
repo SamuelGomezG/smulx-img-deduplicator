@@ -69,6 +69,7 @@ fn pipeline_duplicados_exactos_misma_imagen_mismo_cluster() {
     std::fs::copy(&original, &copia).unwrap();
 
     let files = scanner::discover_images(&[dir.path().to_path_buf()]);
+    assert_eq!(files.len(), 2, "Both original and copy must be discovered");
     let records = hasher::hash_all(&files);
     let clusters = cluster::build_clusters(&records, 0);
 

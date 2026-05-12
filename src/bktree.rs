@@ -1,9 +1,12 @@
 use std::path::PathBuf;
 
+const HAMMING_DISTANCE_MAX: usize = 64;
+const CHILDREN_SIZE: usize = HAMMING_DISTANCE_MAX + 1;
+
 pub struct BKNode {
     pub(crate) hash: u64,
     pub(crate) paths: Vec<PathBuf>,
-    pub(crate) children: [Option<Box<BKNode>>; 65],
+    pub(crate) children: [Option<Box<BKNode>>; CHILDREN_SIZE],
 }
 
 impl BKNode {
@@ -11,7 +14,7 @@ impl BKNode {
         BKNode {
             hash,
             paths: vec![path],
-            children: [const { None }; 65],
+            children: [const { None }; CHILDREN_SIZE],
         }
     }
 }
@@ -84,7 +87,7 @@ pub(crate) fn search_node<'a>(
     }
 
     let lo = d.saturating_sub(threshold) as usize;
-    let hi = (d.saturating_add(threshold).min(64)) as usize;
+    let hi = d.saturating_add(threshold).min(HAMMING_DISTANCE_MAX as u32) as usize;
 
     for dist_key in lo..=hi {
         if let Some(child) = &node.children[dist_key] {

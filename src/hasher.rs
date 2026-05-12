@@ -5,7 +5,7 @@ use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
 use std::path::PathBuf;
 
-const MAX_IMAGE_BYTES: u64 = 100 * 1024 * 1024;
+pub const MAX_IMAGE_BYTES: u64 = 100 * 1024 * 1024;
 
 #[derive(Debug, Clone)]
 pub struct ImageRecord {
