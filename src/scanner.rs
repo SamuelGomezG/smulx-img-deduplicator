@@ -31,17 +31,15 @@ pub fn discover_images(roots: &[PathBuf]) -> Vec<ScannedFile> {
                             .iter()
                             .any(|s| s.eq_ignore_ascii_case(ext))
                     {
-                        let size = match e.metadata() {
-                            Ok(m) => m.len(),
+                        match e.metadata() {
+                            Ok(m) => files.push(ScannedFile {
+                                path,
+                                size_bytes: m.len(),
+                            }),
                             Err(err) => {
-                                tracing::warn!("Cannot read metadata for {:?}: {}", e.path(), err);
-                                0
+                                tracing::warn!("Cannot read metadata for {:?}: {}", path, err);
                             }
-                        };
-                        files.push(ScannedFile {
-                            path,
-                            size_bytes: size,
-                        });
+                        }
                     }
                 }
                 Err(e) => tracing::warn!("Error accessing entry: {}", e),

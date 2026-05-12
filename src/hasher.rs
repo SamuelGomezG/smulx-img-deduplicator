@@ -1,3 +1,4 @@
+use crate::error::DeduplicatorError;
 use crate::scanner::ScannedFile;
 use image::ImageReader;
 use img_hash::{HashAlg, HasherConfig};
@@ -31,55 +32,48 @@ pub(crate) fn compute_hash(img: &image::DynamicImage) -> u64 {
     hash_to_u64(image_hash.as_bytes())
 }
 
-#[allow(dead_code)]
-pub(crate) fn hamming_distance(h1: u64, h2: u64) -> u32 {
-    (h1 ^ h2).count_ones()
-}
-
 fn hash_to_u64(bytes: &[u8]) -> u64 {
     assert_eq!(bytes.len(), 8, "Expected 8 bytes for 8x8 hash");
     u64::from_le_bytes(bytes.try_into().unwrap())
 }
 
-fn hash_single(file: &ScannedFile) -> Option<ImageRecord> {
+fn hash_single(file: &ScannedFile) -> Result<Option<ImageRecord>, DeduplicatorError> {
     if file.size_bytes > MAX_IMAGE_BYTES {
         tracing::warn!(
             "Skipping oversized image {:?} ({} bytes)",
             file.path,
             file.size_bytes
         );
-        return None;
+        return Ok(None);
     }
 
-    let reader = match ImageReader::open(&file.path) {
-        Ok(r) => r,
-        Err(e) => {
-            tracing::warn!("Cannot open image {:?}: {}", file.path, e);
-            return None;
-        }
-    };
-    let reader = match reader.with_guessed_format() {
-        Ok(r) => r,
-        Err(e) => {
-            tracing::warn!("Cannot determine format for {:?}: {}", file.path, e);
-            return None;
-        }
-    };
-    let img = match reader.decode() {
-        Ok(i) => i,
-        Err(e) => {
-            tracing::warn!("Cannot decode image {:?}: {}", file.path, e);
-            return None;
-        }
-    };
+    let mut reader = ImageReader::open(&file.path).map_err(|e| DeduplicatorError::Io {
+        path: file.path.clone(),
+        source: e,
+    })?;
+    reader = reader
+        .with_guessed_format()
+        .map_err(|e| DeduplicatorError::Io {
+            path: file.path.clone(),
+            source: e,
+        })?;
+
+    let mut limits = image::Limits::default();
+    limits.max_alloc = Some(MAX_IMAGE_BYTES);
+    reader.limits(limits);
+
+    let img = reader.decode().map_err(|e| DeduplicatorError::ImageRead {
+        path: file.path.clone(),
+        source: e,
+    })?;
 
     let hash = compute_hash(&img);
 
-    Some(ImageRecord {
+    Ok(Some(ImageRecord {
         path: file.path.clone(),
         hash,
         size_bytes: file.size_bytes,
-    })
+    }))
 }
 
 pub fn hash_all(files: &[ScannedFile]) -> Vec<ImageRecord> {
@@ -97,11 +91,23 @@ pub fn hash_all(files: &[ScannedFile]) -> Vec<ImageRecord> {
     let result: Vec<ImageRecord> = files
         .par_iter()
         .progress_with(pb.clone())
-        .filter_map(hash_single)
+        .filter_map(|file| match hash_single(file) {
+            Ok(Some(record)) => Some(record),
+            Ok(None) => None,
+            Err(e) => {
+                tracing::warn!("{}", e);
+                None
+            }
+        })
         .collect();
 
     pb.finish_and_clear();
     result
+}
+
+#[allow(dead_code)]
+pub(crate) fn hamming_distance(h1: u64, h2: u64) -> u32 {
+    (h1 ^ h2).count_ones()
 }
 
 #[cfg(test)]
