@@ -31,7 +31,13 @@ pub fn discover_images(roots: &[PathBuf]) -> Vec<ScannedFile> {
                             .iter()
                             .any(|s| s.eq_ignore_ascii_case(ext))
                     {
-                        let size = e.metadata().map(|m| m.len()).unwrap_or(0);
+                        let size = match e.metadata() {
+                            Ok(m) => m.len(),
+                            Err(err) => {
+                                tracing::warn!("Cannot read metadata for {:?}: {}", e.path(), err);
+                                0
+                            }
+                        };
                         files.push(ScannedFile {
                             path,
                             size_bytes: size,
