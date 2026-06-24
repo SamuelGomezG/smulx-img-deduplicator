@@ -1,5 +1,27 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
+use std::fmt;
 use std::path::PathBuf;
+
+#[derive(ValueEnum, Debug, Clone)]
+pub enum LogLevel {
+    Error,
+    Warn,
+    Info,
+    Debug,
+    Trace,
+}
+
+impl fmt::Display for LogLevel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            LogLevel::Error => write!(f, "error"),
+            LogLevel::Warn => write!(f, "warn"),
+            LogLevel::Info => write!(f, "info"),
+            LogLevel::Debug => write!(f, "debug"),
+            LogLevel::Trace => write!(f, "trace"),
+        }
+    }
+}
 
 #[derive(Parser, Debug)]
 #[command(
@@ -27,5 +49,5 @@ pub struct Cli {
 
     /// Log level (error, warn, info, debug, trace)
     #[arg(long, default_value = "warn", env = "SMULX_LOG")]
-    pub log_level: String,
+    pub log_level: LogLevel,
 }
