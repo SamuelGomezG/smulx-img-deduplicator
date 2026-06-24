@@ -1,6 +1,4 @@
 use smulx_img_deduplicator::cluster::ImageCluster;
-use std::collections::HashSet;
-use std::path::PathBuf;
 
 pub enum AppMode {
     ClusterList,
@@ -77,33 +75,31 @@ impl App {
     pub fn execute_deletion(&mut self) -> (usize, Vec<String>) {
         let mut deleted = 0;
         let mut errors = Vec::new();
+        let use_trash = self.use_trash;
 
         if let Some(cluster) = self.clusters.get_mut(self.selected_cluster) {
-            let to_delete: Vec<PathBuf> = cluster
-                .files
-                .iter()
-                .filter(|f| f.marked_for_deletion)
-                .map(|f| f.path.clone())
-                .collect();
+            cluster.files.retain(|f| {
+                if !f.marked_for_deletion {
+                    return true;
+                }
 
-            let mut deleted_paths: HashSet<PathBuf> = HashSet::new();
-            for path in &to_delete {
-                let result = if self.use_trash {
-                    trash::delete(path.as_path()).map_err(|e| e.to_string())
+                let result = if use_trash {
+                    trash::delete(&f.path).map_err(|e| format!("{}", e))
                 } else {
-                    std::fs::remove_file(path).map_err(|e| e.to_string())
+                    std::fs::remove_file(&f.path).map_err(|e| format!("{}", e))
                 };
 
                 match result {
-                    Ok(_) => {
+                    Ok(()) => {
                         deleted += 1;
-                        deleted_paths.insert(path.clone());
+                        false
                     }
-                    Err(e) => errors.push(format!("{}: {}", path.display(), e)),
+                    Err(msg) => {
+                        errors.push(format!("{}: {}", f.path.display(), msg));
+                        true
+                    }
                 }
-            }
-
-            cluster.files.retain(|f| !deleted_paths.contains(&f.path));
+            });
 
             if cluster.files.len() <= 1 {
                 self.clusters.remove(self.selected_cluster);
@@ -126,6 +122,7 @@ impl App {
 mod tests {
     use super::*;
     use smulx_img_deduplicator::cluster::ClusterFile;
+    use std::path::PathBuf;
 
     fn make_cluster(n: usize) -> ImageCluster {
         ImageCluster {
